@@ -78,7 +78,8 @@ Mix.new(bands)}.scope;
 
 //With a function : exponential bands : more intuitive way
 (
-var vocoderIntuitive = {
+var vocoderIntuitive;
+vocoderIntuitive = {
 	//Carrier must be a function otherwise does not work!
 	arg  car = {Saw.ar(220)}, numBands = 20, outputMul = 25, minFreq = 100, maxFreq = 10000;
 	{var vocoderStep = {
@@ -109,4 +110,4 @@ var vocoderIntuitive = {
 vocoderIntuitive.value({PinkNoise.ar()}, 100, 100).scope;
 )
 
-{Vocoder.ar(Saw.ar(200,4),PlayBuf.ar(2, b.bufnum, BufRateScale.kr(b.bufnum)),20)}.play; 
+{Vocoder.ar(Saw.ar(200,4),PlayBuf.ar(2, b.bufnum, BufRateScale.kr(b.bufnum)),20)}.play;
