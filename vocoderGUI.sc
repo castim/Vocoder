@@ -1,55 +1,65 @@
 /*TODO:
-- melody?
-- microphone
-- other effects?*/
-//With a function : exponential bands : more intuitive way
+- male speech, do parameters apply?
+- Test nr of bands higher than 100?
+- read the report again*/
 
 (
 var modFile, organFile, padFile, saxFile, celloFile, didgFile,fluteFile, carrFile;
 var vocoderIntuitive, vocoderGUI;
 var bass, sillyVoice, defaultB, sawCombination, dominator;
-modFile = Buffer.read(s,"C:/Users/marti/Documents/Ingenieur/Master2/Sound/Vocoder/luck_speech.wav");
+var workingDir = thisProcess.nowExecutingPath.dirname;
+//https://www.best-speech-topics.com/sample-informative-speech.html : caffeine
+//https://www.best-speech-topics.com/informative-speech-sample.html : humor
+//https://www.best-speech-topics.com/fun-persuasive-speech.html : luck
+modFile = Buffer.read(s, workingDir +/+ "Modulators/luck_speech.wav");
 //https://freesound.org/people/hammondman/sounds/333747/
-organFile = Buffer.read(s,"C:/Users/marti/Documents/Ingenieur/Master2/Sound/Vocoder/organ_b2_modif.wav");
+organFile = Buffer.read(s, workingDir +/+ "Carriers/organ_b2_modif.wav");
 //https://freesound.org/people/ceich93/sounds/274558/
-padFile = Buffer.read(s,"C:/Users/marti/Documents/Ingenieur/Master2/Sound/Vocoder/pad_ab3_modif.wav");
+padFile = Buffer.read(s, workingDir +/+ "Carriers/pad_ab3_modif.wav");
 //https://freesound.org/people/clruwe/sounds/121422/
-saxFile = Buffer.read(s,"C:/Users/marti/Documents/Ingenieur/Master2/Sound/Vocoder/sax_gb3_modif.wav");
+saxFile = Buffer.read(s, workingDir +/+ "Carriers/sax_gb3_modif.wav");
 //https://freesound.org/people/flcellogrl/sounds/195281/
-celloFile = Buffer.read(s,"C:/Users/marti/Documents/Ingenieur/Master2/Sound/Vocoder/cello_e2_modif.wav");
+celloFile = Buffer.read(s, workingDir +/+ "Carriers/cello_e2_modif.wav");
 //https://freesound.org/people/InspectorJ/sounds/398272/
-didgFile = Buffer.read(s,"C:/Users/marti/Documents/Ingenieur/Master2/Sound/Vocoder/didgeridoo_a2_modif.wav");
+didgFile = Buffer.read(s, workingDir +/+ "Carriers/didgeridoo_a2_modif.wav");
 //https://freesound.org/people/mrshoes/sounds/278175/
-fluteFile = Buffer.read(s,"C:/Users/marti/Documents/Ingenieur/Master2/Sound/Vocoder/panflute_d4_modif.wav");
+fluteFile = Buffer.read(s, workingDir +/+ "Carriers/panflute_d4_modif.wav");
 
 //Vocoder code
 vocoderIntuitive = {
 	//Carrier must be a function otherwise does not work!
-	arg  car = {Saw.ar(220)}, modulator = {PlayBuf.ar(2, modFile.bufnum, BufRateScale.kr(modFile.bufnum))}, numBands = 20, outputMul = 25, minFreq = 100, maxFreq = 10000;
+	arg  car = {Saw.ar(220)}, modulator = {PlayBuf.ar(2, modFile.bufnum, BufRateScale.kr(modFile.bufnum))},
+	numBands = 20, outputMul = 25, minFreq = 100, maxFreq = 10000, bandSizeMult = 0.9;
+	//function that apply one band of the vocoder
 	{var vocoderStep = {
-		arg bandwidth = 1000, freq = 440, carrier = Saw.ar(220), modulator = PlayBuf.ar(2, modFile.bufnum, BufRateScale.kr(modFile.bufnum));
+		arg bandwidth = 1000, freq = 440, carrier = Saw.ar(220),
+		modulator = PlayBuf.ar(2, modFile.bufnum, BufRateScale.kr(modFile.bufnum));
 		var filtMod = BPF.ar(modulator, freq, bandwidth/freq);
 		var filtAmpl = Amplitude.kr(filtMod);
 		var filtCarrier = BPF.ar(carrier, freq, bandwidth/freq);
 		filtCarrier * filtAmpl;
 	};
 
-
+	//Logarithmic scale
 	var step = (maxFreq/minFreq)**numBands.reciprocal;
 	var curFreq = minFreq;
 	var bands = Array.newClear(numBands);
 
+	//Compute all bands in an array
 	for(1, numBands,
 		{arg i;
-			bands.put(i-1, vocoderStep.value((curFreq*step - curFreq), (curFreq + curFreq*step)/2, car, modulator));
+			bands.put(i-1, vocoderStep.value((curFreq*step - curFreq)*bandSizeMult, (curFreq + curFreq*step)/2, car, modulator));
 			curFreq = curFreq * step;
 	});
 
+	//Mix everything
 	outputMul * Mix.new(bands)};
 };
 
 //Some sounds definitions
 
+//The three following sounds come from the follwing github repositories.
+//They were adapted from SynthDef to function.
 //https://github.com/brunoruviaro/SynthDefs-for-Patterns
 bass = { |freq = 440, gate = 1, amp = 0.5, slideTime = 0.17, ffreq = 1100, width = 0.15, detune = 1.005, preamp = 4|
     var sig, env;
@@ -170,23 +180,27 @@ dominator = { |freq=440, amp=0.1, gate=1|
 
 //GUI definition
 vocoderGUI = {
+	//All variables have to be declared at the beginning of the function in supercollider
 	var running, w, pause = true, carrier;
 	var freqKnob, freqKnobLabel, freqKnobNr, freqMult = 2000, freqShift = 10;
 	var bandsKnob, bandsKnobLabel, bandsKnobNr, bandsMult = 100, bandsShift = 1;
-	var volKnob, volKnobLabel, volKnobNr, volMult = 100, volShift = 0;
-	var freqRangeSlider, lowFreqNr, highFreqNr, fRangeMult = 19999, fRangeShift = 1, fRangeLabel;
-	var carMenu, carMenuLabel;
-	var onButton;
+	var bandWidthKnob, bandWidthKnobLabel, bandWidthKnobNr, bandWidthMult = 1.0/1.01, bandWidthShift = 0.01;
+	var volKnob, volKnobLabel, volKnobNr, volMult = 500, volShift = 0;
+	var freqRangeSlider, lowFreqNr, highFreqNr, fRangePow = 20000, fRangeShift = 0, fRangeLabel;
+	var carMenu, carMenuLabel, carFileButton, useListButton, userCarrFile = false;
+	var onButton, offButton;
 	var modulator = {PlayBuf.ar(2, modFile.bufnum, BufRateScale.kr(modFile.bufnum))};
-	var modFileButton, modMenuLabel;
+	var modFileButton, modMenuLabel, micButton;
 
-	w= Window("My tunable Vocoder",Rect(100,300,300,200));
+	w= Window("My tunable Vocoder",Rect(100,300,500,300));
 
 	//Knob to tune frequency
 	freqKnob= Knob(w);
 	freqKnobNr = NumberBox(w);
 	freqKnob.value = 0.2;
-	freqKnob.action={if(pause == false,{ free(running); pause = true;});
+	freqKnob.action={
+		//Stop the current audio if any
+		if(pause == false,{ free(running); pause = true;});
 		freqKnobNr.value = freqKnob.value*freqMult+freqShift;
 	};
 
@@ -216,13 +230,31 @@ vocoderGUI = {
 		bandsKnob.value = (bandsKnobNr.value-bandsShift)/bandsMult;
 	};
 
+	//Knob to tune band size (1 is the full band between filters, but as they are ButterWorth filter,
+	//there is some overlap
+	bandWidthKnob= Knob(w);
+	bandWidthKnobNr = NumberBox(w);
+	bandWidthKnob.action={if(pause == false,{ free(running); pause = true;});
+		bandWidthKnobNr.value = bandWidthKnob.value*bandWidthMult+bandWidthShift;
+	};
+	bandWidthKnob.value = 0.8;
+
+	bandWidthKnobLabel = StaticText(w);
+	bandWidthKnobLabel.string = "Bands width factor";
+	bandWidthKnobLabel.align = \center;
+
+	bandWidthKnobNr.value = bandWidthKnob.value*bandWidthMult+bandWidthShift;
+	bandWidthKnobNr.action = {if(pause == false,{ free(running); pause = true;});
+		bandWidthKnob.value = (bandWidthKnobNr.value-bandWidthShift)/bandWidthMult;
+	};
+
 	//Knob to tune volume
 	volKnob= Knob(w);
 	volKnobNr = NumberBox(w);
 	volKnob.action={if(pause == false,{ free(running); pause = true;});
 		volKnobNr.value = volKnob.value*volMult+volShift;
 	};
-	volKnob.value = 0.25;
+	volKnob.value = 0.05;
 
 	volKnobLabel = StaticText(w);
 	volKnobLabel.string = "Volume";
@@ -236,20 +268,20 @@ vocoderGUI = {
 	//Range slider for interval of frequencies values
 	freqRangeSlider = RangeSlider(w);
 	freqRangeSlider.action={if(pause == false,{ free(running); pause = true;});
-		lowFreqNr.value = freqRangeSlider.lo*fRangeMult+fRangeShift;
-		highFreqNr.value = freqRangeSlider.hi*fRangeMult+fRangeShift;
+		lowFreqNr.value = fRangePow**freqRangeSlider.lo+fRangeShift;
+		highFreqNr.value = fRangePow**freqRangeSlider.hi+fRangeShift;
 	};
 	lowFreqNr = NumberBox(w);
 	highFreqNr = NumberBox(w);
 
-	lowFreqNr.value = freqRangeSlider.lo*fRangeMult+fRangeShift;
+	lowFreqNr.value = fRangePow**freqRangeSlider.lo+fRangeShift;
 	lowFreqNr.action = {if(pause == false,{ free(running); pause = true;});
-		freqRangeSlider.lo = (lowFreqNr.value-fRangeShift)/fRangeMult;
+		freqRangeSlider.lo = log(lowFreqNr.value-fRangeShift)/log(fRangePow);
 	};
 
-	highFreqNr.value = freqRangeSlider.hi*fRangeMult+fRangeShift;
+	highFreqNr.value = fRangePow**freqRangeSlider.hi+fRangeShift;
 	highFreqNr.action = {if(pause == false,{ free(running); pause = true;});
-		freqRangeSlider.hi = (highFreqNr.value-fRangeShift)/fRangeMult;
+		freqRangeSlider.hi = log(highFreqNr.value-fRangeShift)/log(fRangePow);
 	};
 
 	fRangeLabel = StaticText(w);
@@ -257,33 +289,63 @@ vocoderGUI = {
 	fRangeLabel.align = \center;
 
 	//Popup menu to select carrier sound
+	carMenuLabel = StaticText(w);
+	carMenuLabel.string = "Carrier Signal";
+	carMenuLabel.align = \center;
+
 	carMenu = PopUpMenu(w);
 
 	carMenu.items = [
-		"Saw", "White Noise", "Pink Noise", "Brown Noise", "Bass", "sillyVoice", "defaultB",
-		"sawCombination", "dominator", "organ", "pad", "sax", "cello", "didgeridoo", "pan flute", "file"
+		"Saw", "White Noise", "Pink Noise", "Brown Noise", "Bass", "SillyVoice", "DefaultB",
+		"Saw Combination", "Dominator", "Organ", "Pad", "Sax", "Cello", "Didgeridoo", "Pan flute"
 	];
 
 	carMenu.action = {
 		if(pause == false,{ free(running); pause = true;});
-		if(carMenu.value == 15, {Dialog.openPanel({ arg path;
-				carrFile = Buffer.read(s,path);
-			},{
-				"User cancelled the file choice".postln;
-			});
+		userCarrFile = false;
+	};
+
+	//Choose carrier file button
+	carFileButton = Button(w);
+	carFileButton.action = {
+		if(pause == false,{ free(running); pause = true;});
+		Dialog.openPanel({ arg path;
+			carrFile = Buffer.read(s,path);
+			carrier = {PlayBuf.ar(2, carrFile.bufnum, BufRateScale.kr(carrFile.bufnum), loop:1)};
+			userCarrFile = true;
+		},{
+			"User cancelled the file choice".postln;
 		});
 	};
 
-	carMenuLabel = StaticText(w);
-	carMenuLabel.string = "Carrier Signal";
-	carMenuLabel.align = \center;
+	carFileButton.string = "Choose file";
+
+	//Disable file and use list
+	useListButton = Button(w);
+	useListButton.action = {
+		if(pause == false,{ free(running); pause = true;});
+		userCarrFile = false;
+	};
+
+	useListButton.string = "Use list";
 
 	//Select modulator menu
 	modMenuLabel = StaticText(w);
 	modMenuLabel.string = "Modulator Signal";
 	modMenuLabel.align = \center;
+
+	//Use microphone button
+	micButton = Button(w);
+	micButton.string = "Microphone";
+	micButton.action = {
+		if(pause == false,{ free(running); pause = true;});
+		modulator = {AudioIn.ar([1,2])};
+	};
+
+	//Choose modulator file button
 	modFileButton = Button(w);
 	modFileButton.action = {
+		if(pause == false,{ free(running); pause = true;});
 		Dialog.openPanel({ arg path;
 			modFile = Buffer.read(s,path);
 			modulator = {PlayBuf.ar(2, modFile.bufnum, BufRateScale.kr(modFile.bufnum), loop:1)};
@@ -291,36 +353,75 @@ vocoderGUI = {
 			"User cancelled the file choice".postln;
 		});
 	};
+
 	modFileButton.string = "Choose file";
 
+	//Button to stop sound
+	offButton = Button(w);
+	offButton.action = {
+		if(pause == false,{ free(running); pause = true;});
+	};
 
+	offButton.string = "Stop";
 	//Button to start the sound
 	onButton = Button(w);
-	onButton.action = {pause = false;
-		switch(carMenu.value,
-			0, {carrier = {Saw.ar(freqKnob.value*freqMult+freqShift)}},
-			1, {carrier = {WhiteNoise.ar()}},
-			2, {carrier = {PinkNoise.ar()}},
-			3, {carrier = {BrownNoise.ar()}},
-			4, {carrier = {bass.value(freqKnob.value*freqMult+freqShift)}},
-			5, {carrier = {sillyVoice.value(freqKnob.value*freqMult+freqShift)}},
-			6, {carrier = {defaultB.value(freqKnob.value*freqMult+freqShift)}},
-			7, {carrier = {sawCombination.value(freqKnob.value*freqMult+freqShift)}},
-			8, {carrier = {dominator.value(freqKnob.value*freqMult+freqShift)}},
-			9, {carrier = {PlayBuf.ar(2, organFile.bufnum, BufRateScale.kr(organFile.bufnum) / 123.47 * (freqKnob.value*freqMult+freqShift), loop:1)}},
-			10, {carrier = {PlayBuf.ar(2, padFile.bufnum, BufRateScale.kr(padFile.bufnum) / 207.65 * (freqKnob.value*freqMult+freqShift), loop:1)}},
-			11, {carrier = {PlayBuf.ar(2, saxFile.bufnum, BufRateScale.kr(saxFile.bufnum) / 185.00 * (freqKnob.value*freqMult+freqShift), loop:1)}},
-			12, {carrier = {PlayBuf.ar(2, celloFile.bufnum, BufRateScale.kr(celloFile.bufnum) / 82.41 * (freqKnob.value*freqMult+freqShift), loop:1)}},
-			13, {carrier = {PlayBuf.ar(2, didgFile.bufnum, BufRateScale.kr(didgFile.bufnum) / 110.0 * (freqKnob.value*freqMult+freqShift), loop:1)}},
-			14, {carrier = {PlayBuf.ar(2, fluteFile.bufnum, BufRateScale.kr(fluteFile.bufnum) / 293.66 * (freqKnob.value*freqMult+freqShift), loop:1)}},
-			15, {carrier = {PlayBuf.ar(2, carrFile.bufnum, BufRateScale.kr(carrFile.bufnum), loop:1)};},
-		);
-	running = vocoderIntuitive.value(carrier, modulator, round(bandsKnob.value*bandsMult + bandsShift), volKnob.value*volMult+volShift, freqRangeSlider.lo*fRangeMult+fRangeShift, freqRangeSlider.hi*fRangeMult+fRangeShift).play;
+	onButton.action = {
+		//Stop the current playing audio if any
+		if(pause == false,{ free(running);});
+		pause = false;
+
+		//We only do this if the carrier file is not user defined
+		if(userCarrFile == false, {
+			//The carrier signal has to be defined here because we need to be able to tune the frequency
+			switch(carMenu.value,
+				0, {carrier = {Saw.ar(freqKnob.value*freqMult+freqShift)}},
+				1, {carrier = {WhiteNoise.ar()}},
+				2, {carrier = {PinkNoise.ar()}},
+				3, {carrier = {BrownNoise.ar()}},
+				4, {carrier = {bass.value(freqKnob.value*freqMult+freqShift)}},
+				5, {carrier = {sillyVoice.value(freqKnob.value*freqMult+freqShift)}},
+				6, {carrier = {defaultB.value(freqKnob.value*freqMult+freqShift)}},
+				7, {carrier = {sawCombination.value(freqKnob.value*freqMult+freqShift)}},
+				8, {carrier = {dominator.value(freqKnob.value*freqMult+freqShift)}},
+				9, {carrier = {PlayBuf.ar(2, organFile.bufnum, BufRateScale.kr(organFile.bufnum) / 123.47 *
+					(freqKnob.value*freqMult+freqShift), loop:1)}},
+				10, {carrier = {PlayBuf.ar(2, padFile.bufnum, BufRateScale.kr(padFile.bufnum) / 207.65 *
+					(freqKnob.value*freqMult+freqShift), loop:1)}},
+				11, {carrier = {PlayBuf.ar(2, saxFile.bufnum, BufRateScale.kr(saxFile.bufnum) / 185.00 *
+					(freqKnob.value*freqMult+freqShift), loop:1)}},
+				12, {carrier = {PlayBuf.ar(2, celloFile.bufnum, BufRateScale.kr(celloFile.bufnum) / 82.41 *
+					(freqKnob.value*freqMult+freqShift), loop:1)}},
+				13, {carrier = {PlayBuf.ar(2, didgFile.bufnum, BufRateScale.kr(didgFile.bufnum) / 110.0 *
+					(freqKnob.value*freqMult+freqShift), loop:1)}},
+				14, {carrier = {PlayBuf.ar(2, fluteFile.bufnum, BufRateScale.kr(fluteFile.bufnum) / 293.66 *
+					(freqKnob.value*freqMult+freqShift), loop:1)}},
+			);
+		});
+
+		running = vocoderIntuitive.value(carrier, modulator, round(bandsKnob.value*bandsMult + bandsShift),
+			volKnob.value*volMult+volShift, fRangePow**freqRangeSlider.lo+fRangeShift,
+			fRangePow**freqRangeSlider.hi+fRangeShift, bandWidthKnob.value*bandWidthMult+bandWidthShift).play;
 	};
 	onButton.string = "Play!";
 
 	//Define an automatic layout
-	w.layout = VLayout(onButton, HLayout(VLayout(carMenuLabel, carMenu), VLayout(modMenuLabel, modFileButton)), HLayout(freqRangeSlider,  VLayout(highFreqNr, fRangeLabel, lowFreqNr), VLayout(freqKnobLabel, freqKnob, freqKnobNr), VLayout(bandsKnobLabel, bandsKnob, bandsKnobNr), VLayout(volKnobLabel, volKnob, volKnobNr)));
+	w.layout = VLayout(
+		HLayout(
+			onButton,
+			offButton),
+		HLayout(
+			VLayout(
+				carMenuLabel,
+				HLayout(useListButton, carMenu),
+				carFileButton),
+			VLayout(modMenuLabel, micButton, modFileButton)),
+		HLayout(
+			freqRangeSlider,
+			VLayout(highFreqNr, fRangeLabel, lowFreqNr),
+			VLayout(freqKnobLabel, freqKnob, freqKnobNr),
+			VLayout(bandsKnobLabel, bandsKnob, bandsKnobNr),
+			VLayout(bandWidthKnobLabel, bandWidthKnob, bandWidthKnobNr),
+			VLayout(volKnobLabel, volKnob, volKnobNr)));
 	w.front;
 };
 

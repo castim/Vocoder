@@ -1,4 +1,4 @@
-b = Buffer.read(s,"C:/Users/marti/Documents/Ingenieur/Master2/Sound/luck_speech.wav");
+b = Buffer.read(s,"C:/Users/marti/Documents/Ingenieur/Master2/Sound/Vocoder/Modulators/luck_speech.wav");
 Platform.resourceDir
 
 
@@ -99,7 +99,7 @@ vocoderIntuitive = {
 
 	for(1, numBands,
 		{arg i;
-			bands.put(i-1, vocoderStep.value((curFreq*step - curFreq), (curFreq + curFreq*step)/2, car));
+			bands.put(i-1, vocoderStep.value((curFreq*step - curFreq)*0.8, (curFreq + curFreq*step)/2, car));
 			curFreq = curFreq * step;
 	});
 
@@ -107,7 +107,7 @@ vocoderIntuitive = {
 	outputMul * Mix.new(bands)};
 };
 
-vocoderIntuitive.value({PinkNoise.ar()}, 100, 100).scope;
+vocoderIntuitive.value({Saw.ar(200)}, 50, 100).scope;
 )
 
-{Vocoder.ar(Saw.ar(200,4),PlayBuf.ar(2, b.bufnum, BufRateScale.kr(b.bufnum)),20)}.play;
+{Vocoder.ar(Saw.ar(200,4),PlayBuf.ar(2, b.bufnum, BufRateScale.kr(b.bufnum)),50, 100, 5000, 0.02, 5000, 0.05, 100)}.play;
